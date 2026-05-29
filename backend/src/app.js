@@ -26,21 +26,41 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
   : null
 
+function isLocalDevelopmentOrigin(origin) {
+  if (!origin) return true
+
+  try {
+    const { hostname } = new URL(origin)
+    return hostname === 'localhost' || hostname === '127.0.0.1'
+  } catch {
+    return false
+  }
+}
+
+function allowCorsOrigin(origin, callback) {
+  if (allowedOrigins) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error(`CORS: origin ${origin} not allowed`))
+    }
+    return
+  }
+
+  if (isLocalDevelopmentOrigin(origin)) {
+    callback(null, true)
+  } else {
+    callback(new Error(`CORS: origin ${origin} not allowed`))
+  }
+}
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }))
 
 app.use(
   cors({
-    origin: allowedOrigins
-      ? (origin, callback) => {
-          if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true)
-          } else {
-            callback(new Error(`CORS: origin ${origin} not allowed`))
-          }
-        }
-      : 'http://localhost:3000',
+    origin: allowCorsOrigin,
     credentials: true,
   }),
 )
@@ -75,7 +95,7 @@ app.get('/api/docs.json', (_req, res) => {
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
-    service: 'active-backend',
+    service: 'rogare-backend',
     timestamp: new Date().toISOString(),
   })
 })
@@ -91,7 +111,7 @@ app.get('/api/health', (_req, res) => {
  *         description: API is running.
  */
 app.get('/', (_req, res) => {
-  res.json({ message: 'Active API is running' })
+  res.json({ message: 'rogāre API is running' })
 })
 
 /** Public FAQ listing (no auth) */

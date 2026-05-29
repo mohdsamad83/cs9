@@ -17,11 +17,11 @@ const router = Router()
  * @openapi
  * /api/faqs:
  *   get:
- *     summary: List all published FAQs grouped by category (public, no auth)
+ *     summary: List all published FAQs grouped by tag (public, no auth)
  *     tags: [FAQs]
  *     responses:
  *       200:
- *         description: FAQs grouped by category
+ *         description: FAQs grouped by tag
  */
 router.get('/faqs', listPublishedFAQs)
 

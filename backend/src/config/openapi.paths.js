@@ -51,6 +51,14 @@ export default {
       responses: { 200: response('Backend is available.', schema('HealthResponse')) },
     },
   },
+  '/api/faqs': {
+    get: {
+      operationId: 'listPublishedFaqs',
+      summary: 'List published FAQs grouped by tag',
+      tags: ['FAQs'],
+      responses: { 200: response('Published FAQs grouped by tag.', schema('RecordResponse')) },
+    },
+  },
   '/api/auth/signup': {
     post: {
       operationId: 'signup',

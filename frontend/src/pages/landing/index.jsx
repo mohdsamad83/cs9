@@ -1,0 +1,398 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  Award,
+  BriefcaseBusiness,
+  CalendarClock,
+  ClipboardCheck,
+  FileText,
+  Info,
+  Laptop,
+  MessageCircle,
+  MessagesSquare,
+  Newspaper,
+  Search,
+  ShieldCheck,
+  Tag,
+  Terminal,
+  Users,
+} from 'lucide-react'
+import Footer from '../../components/Footer'
+import Button from '../../components/Button'
+import labSupportImage from '../../assets/lab-support.png'
+import LoginModal from './LoginModal'
+import FaqCard from './components/FaqCard'
+import { getFaqSections } from './service'
+
+const iconComponents = {
+  award: Award,
+  'briefcase-business': BriefcaseBusiness,
+  'calendar-clock': CalendarClock,
+  'clipboard-check': ClipboardCheck,
+  'file-text': FileText,
+  info: Info,
+  laptop: Laptop,
+  'message-circle': MessageCircle,
+  'messages-square': MessagesSquare,
+  newspaper: Newspaper,
+  'shield-check': ShieldCheck,
+  tag: Tag,
+  terminal: Terminal,
+  users: Users,
+}
+
+function TagIcon({ name, className }) {
+  const IconComponent = iconComponents[name] || Tag
+
+  return <IconComponent aria-hidden="true" className={className} strokeWidth={1.8} />
+}
+
+function Landing() {
+  const [sections, setSections] = useState([])
+  const [openKey, setOpenKey] = useState('')
+  const [query, setQuery] = useState('')
+  const [activeSectionId, setActiveSectionId] = useState('')
+  const [pageProgress, setPageProgress] = useState(0)
+  const [status, setStatus] = useState('loading')
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+  const navigate = useNavigate()
+
+  function handleLogin(user) {
+    setCurrentUser(user)
+    navigate(user.role === 'ADMIN' ? '/admin' : '/user', { state: { user } })
+  }
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadFaqs() {
+      try {
+        setStatus('loading')
+        setErrorMessage('')
+
+        const nextSections = await getFaqSections(controller.signal)
+
+        setSections(nextSections)
+        setActiveSectionId(nextSections[0]?.id || '')
+        setOpenKey(
+          nextSections[0]?.faqs[0] ? `${nextSections[0].id}:${nextSections[0].faqs[0].id}` : '',
+        )
+        setStatus('ready')
+      } catch (error) {
+        if (
+          error.name === 'AbortError' ||
+          error.name === 'CanceledError' ||
+          error.code === 'ERR_CANCELED'
+        ) {
+          return
+        }
+
+        setSections([])
+        setOpenKey('')
+        setActiveSectionId('')
+        setPageProgress(0)
+        setStatus('error')
+        setErrorMessage(error.message || 'Unable to load FAQs')
+      }
+    }
+
+    loadFaqs()
+
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (sections.length === 0) {
+      return undefined
+    }
+
+    let animationFrame = 0
+
+    const updateActiveSection = () => {
+      const scrollPosition = window.scrollY + 150
+      let nextActiveSection = sections[0].id
+
+      for (const section of sections) {
+        const sectionElement = document.getElementById(section.id)
+
+        if (sectionElement && sectionElement.offsetTop <= scrollPosition) {
+          nextActiveSection = section.id
+        }
+      }
+
+      const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight
+      const nextProgress =
+        scrollableHeight > 0 ? Math.min((window.scrollY / scrollableHeight) * 100, 100) : 0
+
+      setActiveSectionId(nextActiveSection)
+      setPageProgress(nextProgress)
+    }
+
+    const onScroll = () => {
+      window.cancelAnimationFrame(animationFrame)
+      animationFrame = window.requestAnimationFrame(updateActiveSection)
+    }
+
+    updateActiveSection()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [sections])
+
+  const visibleSections = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+
+    if (!normalizedQuery) {
+      return sections
+    }
+
+    return sections
+      .map((section) => {
+        const sectionMatches = section.label.toLowerCase().includes(normalizedQuery)
+        const matchingFaqs = section.faqs.filter((faq) => {
+          const searchableText = `${faq.question} ${faq.answer} ${faq.category} ${faq.tags.join(
+            ' ',
+          )}`.toLowerCase()
+          return searchableText.includes(normalizedQuery)
+        })
+
+        return {
+          ...section,
+          faqs: sectionMatches ? section.faqs : matchingFaqs,
+        }
+      })
+      .filter((section) => section.faqs.length > 0)
+  }, [query, sections])
+
+  const hasSections = sections.length > 0
+
+  return (
+    <div className="min-h-svh bg-[#f8f9fa] text-[#191c1d]">
+      <header className="sticky top-0 z-50 border-b border-[#c4c7c7] bg-[#f8f9fa]/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-300 items-center justify-between px-2 py-3 sm:px-2 sm:py-4">
+          <a
+            href="#top"
+            className="font-display text-[18px] font-bold leading-tight text-black sm:text-[22px]"
+          >
+            rogāre
+          </a>
+          <Button variant="secondary" onClick={() => setIsLoginModalOpen(true)}>
+            {currentUser?.name || 'Login'}
+          </Button>
+        </div>
+      </header>
+
+      <div id="top" className="mx-auto flex w-full max-w-300">
+        <aside className="sticky top-16 hidden w-60 shrink-0 flex-col self-start border-r border-[#c4c7c7] px-2 py-6 md:flex">
+          <div className="mb-4">
+            <h2 className="font-display text-[14px] font-semibold leading-snug text-black">
+              FAQ Tags
+            </h2>
+            <p className="mt-1 text-[12px] leading-normal text-[#444748]">Internship Guide</p>
+          </div>
+
+          <nav aria-label="FAQ tags" className="relative flex flex-col gap-1 pl-2">
+            <span className="absolute bottom-2 left-0 top-2 w-px bg-[#d9dadb]" aria-hidden="true" />
+            <span
+              className="absolute left-0 top-2 w-px bg-black transition-[height] duration-200"
+              style={{ height: `calc((100% - 16px) * ${pageProgress / 100})` }}
+              aria-hidden="true"
+            />
+            {sections.map((section) => {
+              const isActive = activeSectionId === section.id
+
+              return (
+                <a
+                  href={`#${section.id}`}
+                  key={section.id}
+                  className={`flex min-h-10 items-center gap-3 px-2 py-2 text-[14px] leading-normal transition hover:bg-[#edeeef] ${
+                    isActive ? 'border-r-2 border-black font-bold text-black' : 'text-[#444748]'
+                  }`}
+                >
+                  <TagIcon className="h-5 w-5 shrink-0" name={section.icon} />
+                  <span>{section.label}</span>
+                </a>
+              )
+            })}
+          </nav>
+        </aside>
+
+        <main className="min-w-0 flex-1 px-2 py-6 sm:px-2">
+          <div className="mb-8 md:hidden">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <p className="font-display text-[14px] font-semibold leading-snug text-black">
+                FAQ Tags
+              </p>
+              <p className="text-[12px] font-semibold text-[#444748]">
+                {Math.round(pageProgress)}%
+              </p>
+            </div>
+            <div className="mb-4 h-px overflow-hidden bg-[#d9dadb]">
+              <div
+                className="h-full bg-black transition-[width] duration-200"
+                style={{ width: `${pageProgress}%` }}
+              />
+            </div>
+            <nav
+              aria-label="FAQ tags"
+              className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6"
+            >
+              {sections.map((section) => {
+                const isActive = activeSectionId === section.id
+
+                return (
+                  <a
+                    href={`#${section.id}`}
+                    key={section.id}
+                    className={`flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] ${
+                      isActive
+                        ? 'border-black bg-black text-white'
+                        : 'border-[#c4c7c7] bg-white text-[#444748]'
+                    }`}
+                  >
+                    <TagIcon className="h-4 w-4 shrink-0" name={section.icon} />
+                    <span>{section.label}</span>
+                  </a>
+                )
+              })}
+            </nav>
+          </div>
+
+          <label className="relative mb-8 block w-full" htmlFor="faq-search">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#747878]"
+              strokeWidth={1.8}
+            />
+            <input
+              id="faq-search"
+              className="h-14 w-full rounded-lg border border-[#c4c7c7] bg-white pl-12 pr-4 text-[14px] outline-none transition placeholder:text-[#9da1a1] focus:border-black focus:ring-1 focus:ring-black"
+              placeholder="Search for questions (e.g., 'stipend', 'selection')..."
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+
+          {status === 'loading' && (
+            <section className="rounded-lg border border-[#c4c7c7] bg-white p-6">
+              <p className="text-[14px] leading-7 text-[#444748]">Loading FAQ data...</p>
+            </section>
+          )}
+
+          {status === 'error' && (
+            <section className="rounded-lg border border-[#c4c7c7] bg-white p-6">
+              <h1 className="mb-2 font-display text-[18px] font-semibold leading-snug text-black">
+                FAQ data is unavailable
+              </h1>
+              <p className="text-[14px] leading-7 text-[#444748]">
+                {errorMessage}. Make sure the backend is running and serving /api/faqs.
+              </p>
+            </section>
+          )}
+
+          {status === 'ready' && hasSections && (
+            <div className="flex flex-col gap-8">
+              {visibleSections.map((section) => (
+                <section
+                  id={section.id}
+                  aria-labelledby={`${section.id}-heading`}
+                  className="scroll-mt-28"
+                  key={section.id}
+                >
+                  <div className="mb-4 flex items-end justify-between gap-4 border-b border-[#c4c7c7] pb-3">
+                    <h1
+                      id={`${section.id}-heading`}
+                      className="font-display text-[18px] font-semibold leading-snug text-black"
+                    >
+                      {section.label}
+                    </h1>
+                    <p className="shrink-0 text-right text-[12px] font-bold leading-none text-[#747878]">
+                      {section.faqs.length} QUESTIONS
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {section.faqs.map((faq) => {
+                      const accordionKey = `${section.id}:${faq.id}`
+                      const isOpen = openKey === accordionKey
+
+                      return (
+                        <FaqCard
+                          key={accordionKey}
+                          faq={faq}
+                          sectionId={section.id}
+                          isOpen={isOpen}
+                          onToggle={() => setOpenKey(isOpen ? '' : accordionKey)}
+                        />
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+
+              {visibleSections.length === 0 && (
+                <section className="rounded-lg border border-[#c4c7c7] bg-white p-6">
+                  <h1 className="mb-2 font-display text-[18px] font-semibold leading-snug text-black">
+                    No questions found
+                  </h1>
+                  <p className="text-[14px] leading-7 text-[#444748]">
+                    Try a different keyword or clear the search field to return to the full FAQ.
+                  </p>
+                </section>
+              )}
+            </div>
+          )}
+
+          {status === 'ready' && !hasSections && (
+            <section className="rounded-lg border border-[#c4c7c7] bg-white p-6">
+              <h1 className="mb-2 font-display text-[18px] font-semibold leading-snug text-black">
+                No FAQs published
+              </h1>
+              <p className="text-[14px] leading-7 text-[#444748]">
+                Published FAQ questions will appear here automatically once they have tags.
+              </p>
+            </section>
+          )}
+
+        </main>
+      </div>
+
+      <section className="border-t border-[#c4c7c7]/60 px-2 py-6 sm:px-2">
+        <div className="relative mx-auto flex min-h-48 max-w-300 items-center overflow-hidden rounded-xl border border-[#c4c7c7] bg-white p-6">
+          <img
+            alt="Academic research environment"
+            className="absolute inset-0 h-full w-full object-cover opacity-10 grayscale"
+            src={labSupportImage}
+          />
+          <div className="relative z-10 max-w-lg">
+            <h2 className="mb-2 font-display text-[15px] font-semibold leading-snug text-black">
+              Need direct assistance?
+            </h2>
+            <p className="mb-4 text-[13px] leading-6 text-[#444748]">
+              Our support team is available during lab hours to help with specific onboarding or
+              platform issues.
+            </p>
+            <Button variant="primary">Contact Lab Support</Button>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={handleLogin}
+      />
+    </div>
+  )
+}
+
+export default Landing

@@ -10,6 +10,24 @@ import {
   paginationResult,
 } from '../utils/http.js'
 
+function slugifyTag(tag) {
+  return String(tag)
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'general'
+}
+
+function normalizeTags(tags) {
+  const cleanedTags = Array.isArray(tags)
+    ? tags.map((tag) => String(tag).trim()).filter(Boolean)
+    : []
+
+  return cleanedTags.length > 0 ? cleanedTags : ['General']
+}
+
+const GENERIC_FAQ_TAGS = new Set(['faq', 'internship', 'vins'])
 const SECTION_LABELS = {
   '1': 'VINS Overview',
   '2': 'Timeline & Start Dates',
@@ -26,33 +44,67 @@ const SECTION_LABELS = {
   '13': 'Team Formation',
 }
 
+function getCategoryLabel(category) {
+  const raw = String(category || '').trim()
+  const major = raw.split('.')[0]
+
+  return SECTION_LABELS[major] || SECTION_LABELS[raw] || raw || 'General'
+}
+
+function getFaqTags(faq) {
+  const tags = normalizeTags(faq.tags)
+  const meaningfulTags = tags.filter((tag) => !GENERIC_FAQ_TAGS.has(tag.toLowerCase()))
+
+  if (meaningfulTags.length > 0) {
+    return meaningfulTags
+  }
+
+  return faq.category ? [getCategoryLabel(faq.category)] : tags
+}
+
 export async function listPublishedFAQs(req, res, next) {
   try {
     const faqs = await Question.find({
       kind: 'faq',
       status: 'published',
+      visibility: 'public',
     })
-      .sort({ category: 1, title: 1 })
+      .sort({ is_pinned: -1, category: 1, title: 1 })
       .lean()
 
-    const grouped = {}
-    for (const faq of faqs) {
-      const raw = faq.category || 'General'
-      const major = raw.split('.')[0]
-      const label = SECTION_LABELS[major] || SECTION_LABELS[raw] || raw
+    const groupedByTag = new Map()
 
-      if (!grouped[label]) grouped[label] = []
-      grouped[label].push({
+    for (const faq of faqs) {
+      const tags = getFaqTags(faq)
+      const item = {
         id: faq.question_id,
         question: faq.title,
         answer: faq.body,
-        category: label,
-        tags: faq.tags || [],
+        category: getCategoryLabel(faq.category),
+        section: faq.category || null,
+        tags,
         updatedAt: faq.updated_at,
-      })
+      }
+
+      for (const tag of tags) {
+        const tagId = slugifyTag(tag)
+
+        if (!groupedByTag.has(tagId)) {
+          groupedByTag.set(tagId, {
+            id: tagId,
+            label: tag,
+            faqs: [],
+          })
+        }
+
+        groupedByTag.get(tagId).faqs.push(item)
+      }
     }
 
-    res.json({ success: true, faqs: grouped, total: faqs.length })
+    const tags = Array.from(groupedByTag.values())
+    const grouped = Object.fromEntries(tags.map((tag) => [tag.label, tag.faqs]))
+
+    res.json({ success: true, tags, faqs: grouped, total: faqs.length })
   } catch (error) {
     next(error)
   }

@@ -6,9 +6,9 @@ const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.3',
     info: {
-      title: 'Active API',
+      title: 'rogāre API',
       version: '1.0.0',
-      description: 'API documentation for the Active backend service.',
+      description: 'API documentation for the rogāre backend service.',
     },
     servers: [
       {
@@ -24,6 +24,7 @@ const swaggerSpec = swaggerJsdoc({
       { name: 'Authentication' },
       { name: 'Users' },
       { name: 'Questions' },
+      { name: 'FAQs' },
       { name: 'Answers' },
       { name: 'Comments' },
       { name: 'Flags' },

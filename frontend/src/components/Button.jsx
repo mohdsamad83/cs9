@@ -1,0 +1,18 @@
+function Button({ variant = 'primary', className = '', type = 'button', children, ...props }) {
+  const base =
+    'inline-flex items-center justify-center font-medium transition focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2'
+  const variants = {
+    primary:
+      'min-h-11 rounded-lg bg-black px-6 text-[14px] text-white hover:bg-[#2e3132] focus:ring-offset-white',
+    secondary:
+      'min-h-9 rounded-lg border border-[#c4c7c7] bg-white px-5 text-[13px] text-[#444748] hover:border-black hover:text-black focus:ring-offset-[#f8f9fa]',
+  }
+
+  return (
+    <button type={type} className={`${base} ${variants[variant]} ${className}`} {...props}>
+      {children}
+    </button>
+  )
+}
+
+export default Button

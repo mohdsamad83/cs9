@@ -13,6 +13,21 @@ import Question from '../models/question.model.js'
 import User from '../models/user.model.js'
 
 const SECTION_SEP = /─{20,}/
+const SECTION_LABELS = {
+  '1': 'VINS Overview',
+  '2': 'Timeline & Start Dates',
+  '3': 'NOC & Onboarding',
+  '4': 'Selection & Offer',
+  '5': 'Internship Work',
+  '6': 'Communication',
+  '7': 'Interview Issues',
+  '8': 'Certificate & Completion',
+  '9': 'Rosetta Journal',
+  '10': 'Coursework & Exemptions',
+  '11': 'Platform & Login',
+  '12': 'ViBe Platform',
+  '13': 'Team Formation',
+}
 
 const TXT = readFileSync(
   new URL('../../../samagama-faq-qn.txt', import.meta.url),
@@ -40,6 +55,11 @@ function parseHeader(line) {
   const m = line.match(/^Q?\d+[:.)]\s*(\d+\.\d+)?\s*(.+)/)
   if (!m) return { section: 'General', question: line }
   return { section: m[1] || 'General', question: m[2].trim() }
+}
+
+function getSectionTag(section) {
+  const major = String(section).split('.')[0]
+  return SECTION_LABELS[major] || 'General'
 }
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@iitr.ac.in').trim().toLowerCase()
@@ -70,6 +90,7 @@ async function main() {
     // First line after Q line (may be on same line as "A:" or next line)
     const qTextRaw = parseQn(qLine)
     const { section } = parseHeader(qLine)
+    const sectionTag = getSectionTag(section)
 
     // Find answer — look for "A:" on same or subsequent lines
     const aIdx = lines.findIndex((l) => /^A\s*:\s*/.test(l))
@@ -96,7 +117,7 @@ async function main() {
         body: answer,
         body_plain: answer,
         category: section,
-        tags: ['VINS', 'internship', 'faq'],
+        tags: [sectionTag],
         author_id: admin.user_id,
         status: 'published',
         visibility: 'public',

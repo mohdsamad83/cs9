@@ -37,7 +37,7 @@ export default {
       type: 'object',
       properties: {
         status: { type: 'string', example: 'ok' },
-        service: { type: 'string', example: 'active-backend' },
+        service: { type: 'string', example: 'rogare-backend' },
         timestamp: { type: 'string', format: 'date-time' },
       },
     },
