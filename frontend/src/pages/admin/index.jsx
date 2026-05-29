@@ -1,78 +1,153 @@
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Button from '../../components/Button/Button'
 import useAuthStore from '../../store/useAuthStore'
+import AdminHeader from './components/Header/AdminHeader'
+import AdminLeftPane from './components/LeftPane/AdminLeftPane'
+import DashboardView from './pages/Dashboard'
+import FAQManagementView from './pages/FAQManagement'
+import QueriesManagementView from './pages/QueriesManagement'
+import SpurtiManagementView from './pages/SpurtiManagement'
+import {
+  fetchAdminDashboard,
+  fetchAdminNotifications,
+  logoutAdmin,
+  markAllAdminNotificationsRead,
+} from './service'
 
 function AdminHome() {
   const navigate = useNavigate()
   const { user, clearUser } = useAuthStore()
+  const [currentAdminView, setCurrentAdminView] = useState('dashboard')
+  const [dashboardData, setDashboardData] = useState(null)
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  function handleLogout() {
+  const initials = user?.name
+    ? user.name
+      .trim()
+      .split(/\s+/)
+      .map((part) => part[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase()
+    : 'A'
+
+  const loadDashboard = useCallback(async () => {
+    setIsDashboardLoading(true)
+    try {
+      const data = await fetchAdminDashboard()
+      setDashboardData(data)
+    } catch {
+      setDashboardData(null)
+    } finally {
+      setIsDashboardLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadInitialDashboard() {
+      try {
+        const data = await fetchAdminDashboard()
+        if (isActive) setDashboardData(data)
+      } catch {
+        if (isActive) setDashboardData(null)
+      } finally {
+        if (isActive) setIsDashboardLoading(false)
+      }
+    }
+
+    loadInitialDashboard()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let isActive = true
+
+    async function loadNotifications() {
+      try {
+        const data = await fetchAdminNotifications()
+        if (!isActive) return
+        setNotifications(data.notifications || [])
+        setUnreadCount(data.unreadCount ?? 0)
+      } catch {
+        if (!isActive) return
+        setNotifications([])
+        setUnreadCount(0)
+      }
+    }
+
+    loadNotifications()
+
+    return () => {
+      isActive = false
+    }
+  }, [])
+
+  async function handleLogout() {
+    try {
+      await logoutAdmin()
+    } catch {
+      // Local logout still wins if the network request fails.
+    }
     clearUser()
     navigate('/')
   }
 
+  async function handleNotificationsOpen() {
+    if (unreadCount === 0) return
+
+    try {
+      await markAllAdminNotificationsRead()
+      setUnreadCount(0)
+      setNotifications((items) => items.map((item) => ({ ...item, is_read: true })))
+    } catch {
+      // Keep the current unread state if the request fails.
+    }
+  }
+
+  function handleSearchSubmit(event) {
+    event.preventDefault()
+    if (searchQuery.trim()) {
+      setCurrentAdminView('queriesManagement')
+    }
+  }
+
+  const viewProps = {
+    dashboardData,
+    isLoading: isDashboardLoading,
+    searchQuery,
+    onRefresh: loadDashboard,
+  }
+
   return (
-    <div className="min-h-svh bg-[#f8f9fa] text-[#191c1d]">
-      <header className="border-b border-[#c4c7c7] bg-[#f8f9fa]/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-300 items-center justify-between px-2 py-3 sm:px-2 sm:py-4">
-          <span className="font-display text-[18px] font-bold text-black sm:text-[22px]">
-            Rogāre
-          </span>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={() => navigate('/')}>
-              Landing
-            </Button>
-            <Button variant="primary" onClick={handleLogout}>
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-svh bg-[#f3f4f6] text-[#111827]">
+      <AdminLeftPane currentView={currentAdminView} onNavigate={setCurrentAdminView} />
 
-      <main className="mx-auto w-full max-w-300 px-2 py-10 sm:px-2">
-        <div className="mb-6 border-b border-[#c4c7c7] pb-4">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-[#747878]">
-            Admin
-          </p>
-          <h1 className="font-display text-[22px] font-semibold text-black">
-            Welcome back{user?.name ? `, ${user.name}` : ''}
-          </h1>
-        </div>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <AdminHeader
+          user={user}
+          initials={initials}
+          searchQuery={searchQuery}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onSearchChange={setSearchQuery}
+          onSearchSubmit={handleSearchSubmit}
+          onNotificationsOpen={handleNotificationsOpen}
+          onLanding={() => navigate('/')}
+          onLogout={handleLogout}
+        />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { label: 'Manage Users', description: 'View, edit, and moderate user accounts.' },
-            { label: 'Manage FAQs', description: 'Publish, edit, and remove FAQ entries.' },
-            { label: 'View Reports', description: 'Review flagged content and activity logs.' },
-            { label: 'Leaderboard', description: 'Monitor user engagement and spark scores.' },
-            { label: 'Notifications', description: 'Send and manage system-wide notifications.' },
-            { label: 'Settings', description: 'Configure platform preferences and roles.' },
-          ].map((card) => (
-            <div
-              key={card.label}
-              className="rounded-lg border border-[#c4c7c7] bg-white p-5 transition hover:border-black"
-            >
-              <p className="mb-1 text-[14px] font-semibold text-black">{card.label}</p>
-              <p className="text-[13px] leading-6 text-[#444748]">{card.description}</p>
-            </div>
-          ))}
-        </div>
-
-        {user && (
-          <div className="mt-8 rounded-lg border border-[#c4c7c7] bg-white p-5">
-            <p className="mb-3 text-[12px] font-semibold uppercase tracking-widest text-[#747878]">
-              Session
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-[13px]">
-              <span className="text-[#444748]">Name</span>
-              <span className="font-medium text-black">{user.name}</span>
-              <span className="text-[#444748]">Email</span>
-              <span className="font-medium text-black">{user.email}</span>
-              <span className="text-[#444748]">Role</span>
-              <span className="font-medium text-black">{user.role}</span>
-            </div>
-          </div>
-        )}
+        {currentAdminView === 'dashboard' && <DashboardView {...viewProps} />}
+        {currentAdminView === 'queriesManagement' && <QueriesManagementView {...viewProps} />}
+        {currentAdminView === 'spurtiManagement' && <SpurtiManagementView {...viewProps} />}
+        {currentAdminView === 'faqManagement' && <FAQManagementView {...viewProps} />}
       </main>
     </div>
   )
