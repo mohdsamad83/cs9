@@ -88,7 +88,6 @@ export async function signup(req, res, next) {
       name: req.body.name,
       email: req.body.email,
       passwordHash: await argon2.hash(req.body.password),
-      role: 'USER',
     })
 
     await UserRoleMapper.create({
@@ -131,7 +130,6 @@ export async function login(req, res, next) {
     }
 
     const roles = await getUserRoles(user)
-    const primaryRole = getPrimaryRole(roles)
     const today = new Date().toISOString().slice(0, 10)
     const previousLoginDay = user.last_login_at?.toISOString().slice(0, 10)
 
@@ -141,7 +139,7 @@ export async function login(req, res, next) {
 
     await User.updateOne(
       { user_id: user.user_id },
-      { $set: { role: primaryRole, last_login_at: new Date() } },
+      { $set: { last_login_at: new Date() } },
     )
 
     res.cookie(cookieName, signAuthToken({ userId: user.user_id }), cookieOptions())

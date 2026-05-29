@@ -28,9 +28,7 @@ async function syncUserPrimaryRole(userId) {
     roles = ['USER']
   }
 
-  const primaryRole = getPrimaryRole(roles)
-  await User.updateOne({ user_id: userId }, { $set: { role: primaryRole } })
-  return primaryRole
+  return getPrimaryRole(roles)
 }
 
 export async function getAdminDashboard(req, res, next) {
@@ -75,7 +73,7 @@ export async function getAdminDashboard(req, res, next) {
       User.find(periodFilter)
         .sort({ created_at: -1 })
         .limit(5)
-        .select('user_id name email role status created_at')
+        .select('user_id name email status created_at')
         .lean(),
       Flag.find({ ...openFlagFilter })
         .sort({ created_at: -1 })

@@ -29,12 +29,6 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Password is required'],
       select: false,
     },
-    role: {
-      type: String,
-      enum: ['USER', 'RESOLVER', 'ADMIN'],
-      default: 'USER',
-      index: true,
-    },
     status: {
       type: String,
       enum: ['active', 'disabled', 'suspended'],
