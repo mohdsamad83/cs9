@@ -163,6 +163,9 @@ export async function listQuestions(req, res, next) {
     const { page, limit, skip } = getPagination(req.query)
     const filter = {}
 
+    if (req.query.kind) {
+      filter.kind = req.query.kind
+    }
     if (req.query.category) {
       filter.category = req.query.category
     }
@@ -361,6 +364,45 @@ export async function acceptAnswer(req, res, next) {
     })
 
     res.json({ success: true, message: 'Answer accepted' })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function voteQuestion(req, res, next) {
+  try {
+    const { questionId } = req.params
+    const userId = req.user.userId
+
+    const question = await Question.findOne({ question_id: questionId })
+
+    if (!question || question.status === 'removed') {
+      throw createHttpError(404, 'Question not found')
+    }
+
+    if (question.author_id === userId) {
+      throw createHttpError(403, 'Cannot vote on your own question')
+    }
+
+    const hasVoted = question.upvoted_by.includes(userId)
+
+    if (hasVoted) {
+      await Question.updateOne(
+        { question_id: questionId },
+        { $pull: { upvoted_by: userId }, $inc: { upvotes: -1 } },
+      )
+    } else {
+      await Question.updateOne(
+        { question_id: questionId },
+        { $addToSet: { upvoted_by: userId }, $inc: { upvotes: 1 } },
+      )
+    }
+
+    res.json({
+      success: true,
+      upvotes: hasVoted ? question.upvotes - 1 : question.upvotes + 1,
+      hasVoted: !hasVoted,
+    })
   } catch (error) {
     next(error)
   }

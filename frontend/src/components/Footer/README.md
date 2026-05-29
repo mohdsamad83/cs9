@@ -4,7 +4,7 @@ Site-wide footer for the Rogare platform — surfaces on all public and authenti
 
 ## Sections
 
-- **Brand** — "rogāre" logo with a tagline about IIT Ropar
+- **Brand** — "Rogāre" logo with a tagline about IIT Ropar
 - **EXPLORE** — Contact Us, Privacy Policy, Rosetta Journal
 - **INSTITUTION** — IIT Ropar Main Site, Terms of Service, Lab Guidelines
 

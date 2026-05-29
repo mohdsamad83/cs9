@@ -225,16 +225,16 @@ function Landing() {
             href="#top"
             className="font-display text-[18px] font-bold leading-tight text-black sm:text-[22px]"
           >
-            rogāre
+            Rogāre
           </a>
-          <Button variant="secondary" onClick={handleHeaderButtonClick}>
+          <Button variant="secondary" className="text-[10px] bg-[#8c6a40]/80 text-white" onClick={handleHeaderButtonClick}>
             {currentUser?.name || 'Login'}
           </Button>
         </div>
       </header>
 
       <div id="top" className="mx-auto flex w-full max-w-300">
-        <aside className="sticky top-16 hidden w-60 shrink-0 flex-col self-start border-r border-[#c4c7c7] px-2 py-6 md:flex">
+        <aside className="sticky top-16 hidden w-62 shrink-0 flex-col self-start border-r border-[#c4c7c7] pr-3 py-6 md:flex">
           <div className="mb-4">
             <h2 className="font-display text-[14px] font-semibold leading-snug text-black">
               FAQ Tags
@@ -256,11 +256,11 @@ function Landing() {
                 <a
                   href={`#${section.id}`}
                   key={section.id}
-                  className={`flex min-h-10 items-center gap-3 px-2 py-2 text-[14px] leading-normal transition hover:bg-[#edeeef] ${
-                    isActive ? 'border-r-2 border-black font-bold text-black' : 'text-[#444748]'
+                  className={`flex min-h-10 items-center gap-3 px-2 py-2 text-[14px] leading-normal transition ${
+                    isActive ? 'border-r-2 border-[#8c6a40] font-bold text-[#8c6a40] bg-[#8c6a40]/10' : 'text-[#444748] hover:bg-[#8c6a40]/10 hover:text-[#8c6a40]'
                   }`}
                 >
-                  <TagIcon className="h-5 w-5 shrink-0" name={section.icon} />
+                  <TagIcon className="h-4 w-4 shrink-0" name={section.icon} />
                   <span>{section.label}</span>
                 </a>
               )
@@ -268,7 +268,7 @@ function Landing() {
           </nav>
         </aside>
 
-        <main className="min-w-0 flex-1 px-2 py-6 sm:px-2">
+        <main className="min-w-0 flex-1 pl-2 pr-4 py-6">
           <div className="mb-8 md:hidden">
             <div className="mb-3 flex items-center justify-between gap-4">
               <p className="font-display text-[14px] font-semibold leading-snug text-black">
@@ -317,7 +317,7 @@ function Landing() {
             />
             <input
               id="faq-search"
-              className="h-10 w-full rounded-lg border border-[#c4c7c7] bg-white pl-9 pr-4 text-[13px] outline-none transition placeholder:text-[#9da1a1] focus:border-black focus:ring-1 focus:ring-black"
+              className="h-10 w-full rounded-lg border border-[#c4c7c7] bg-white pl-9 pr-4 text-[12px] outline-none transition placeholder:text-[#9da1a1] focus:border-black focus:ring-1 focus:ring-black"
               placeholder="Search for questions (e.g., 'stipend', 'selection')..."
               type="search"
               value={query}
@@ -447,7 +447,7 @@ function Landing() {
               Our support team is available during lab hours to help with specific onboarding or
               platform issues.
             </p>
-            <Button variant="primary">Contact Lab Support</Button>
+            <Button variant="secondary" className="text-[10px] border-transparent bg-[#8c6a40]/80 text-white hover:border-transparent hover:bg-[#7a5c35]">Contact Lab Support</Button>
           </div>
         </div>
       </section>

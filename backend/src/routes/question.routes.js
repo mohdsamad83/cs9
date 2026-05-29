@@ -8,6 +8,7 @@ import {
   listPublishedFAQs,
   listQuestions,
   updateQuestion,
+  voteQuestion,
 } from '../controllers/question.controller.js'
 import { checkRole, verifyToken } from '../middleware/authMiddleware.js'
 
@@ -255,6 +256,7 @@ router.delete('/:questionId', checkRole('USER', 'ADMIN'), deleteQuestion)
  *       404:
  *         description: Question not found
  */
+router.post('/:questionId/vote', checkRole('USER', 'RESOLVER', 'ADMIN'), voteQuestion)
 router.post('/:questionId/answers', checkRole('USER', 'RESOLVER', 'ADMIN'), createAnswer)
 
 /**

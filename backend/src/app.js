@@ -111,7 +111,7 @@ app.get('/api/health', (_req, res) => {
  *         description: API is running.
  */
 app.get('/', (_req, res) => {
-  res.json({ message: 'rogāre API is running' })
+  res.json({ message: 'Rogāre API is running' })
 })
 
 /** Public FAQ listing (no auth) */

@@ -20,7 +20,7 @@ export async function ensureRole(roleName) {
   return Role.findOneAndUpdate(
     { name: normalizedRole.toLowerCase() },
     { $setOnInsert: { name: normalizedRole.toLowerCase() } },
-    { new: true, upsert: true, runValidators: true },
+    { returnDocument: 'after', upsert: true, runValidators: true },
   )
 }
 

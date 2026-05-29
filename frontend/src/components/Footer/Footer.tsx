@@ -15,7 +15,7 @@ function Footer() {
 			<div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-8 px-2 py-6 sm:px-2 md:grid-cols-3">
 				<div>
 					<h2 className="mb-3 font-display text-[18px] font-bold leading-tight text-black sm:text-[22px]">
-						rogāre
+						Rogāre
 					</h2>
 					<p className="max-w-xs text-[13px] leading-6 text-[#444748]">
 						Pioneering excellence in technology and social innovation at IIT Ropar.
@@ -44,7 +44,7 @@ function Footer() {
 			</div>
 			<div className="mx-auto max-w-[1200px] border-t border-[#c4c7c7]/30 px-4 py-6 text-center sm:px-4">
 				<p className="text-[12px] leading-6 text-[#444748]">
-					© rogāre Internship Hub. All rights reserved.
+					© Rogāre Internship Hub. All rights reserved.
 				</p>
 			</div>
 		</footer>

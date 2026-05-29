@@ -1,0 +1,91 @@
+import { axisPrivate } from '../../api/axios'
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+export function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1)   return 'Just now'
+  if (mins < 60)  return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)   return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days === 1) return 'Yesterday'
+  return `${days}d ago`
+}
+
+function mapStatus(q) {
+  if (q.status === 'unanswered')                         return 'Active'
+  if (q.status === 'answered' && !q.has_expert_answer)   return 'In Progress'
+  if (q.status === 'answered' && q.has_expert_answer)    return 'Resolved'
+  if (q.status === 'closed')                             return 'Resolved'
+  return 'Active'
+}
+
+export function normalizeQuestion(q, currentUserId) {
+  const tags = (q.tags || []).slice(0, 2).map(tag => ({
+    label: tag.toUpperCase(),
+    type: 'dark',
+  }))
+
+  const meta = [
+    timeAgo(q.created_at),
+    q.category || '',
+  ].filter(Boolean).join(' • ')
+
+  return {
+    id:         q.question_id,
+    upvotes:    q.upvotes ?? 0,
+    hasUpvoted: Array.isArray(q.upvoted_by) && q.upvoted_by.includes(currentUserId),
+    author:     q.author_id === currentUserId ? 'self' : 'other',
+    timestamp:  new Date(q.created_at).getTime(),
+    tags,
+    meta,
+    title:      q.title,
+    desc:       q.body,
+    comments:   q.answer_count ?? 0,
+    status:     mapStatus(q),
+  }
+}
+
+// ─── Questions ───────────────────────────────────────────────────────────────
+
+export async function fetchQuestions({
+  search = '',
+  tag = '',
+  sort = 'latest',
+  my = false,
+  page = 1,
+  limit = 30,
+} = {}) {
+  const params = new URLSearchParams({ kind: 'community', page, limit })
+  if (search)     params.set('search', search)
+  if (tag)        params.set('tag', tag)
+  if (sort)       params.set('sort', sort)
+  if (my)         params.set('my', '1')
+
+  const { data } = await axisPrivate().get(`/api/questions?${params}`)
+  return data
+}
+
+export async function voteQuestion(questionId) {
+  const { data } = await axisPrivate().post(`/api/questions/${questionId}/vote`)
+  return data
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+export async function fetchNotifications() {
+  const { data } = await axisPrivate().get('/api/notifications?limit=10')
+  return data
+}
+
+export async function markNotifRead(notificationId) {
+  const { data } = await axisPrivate().patch(`/api/notifications/${notificationId}/read`)
+  return data
+}
+
+export async function markAllNotifRead() {
+  const { data } = await axisPrivate().patch('/api/notifications/read-all')
+  return data
+}

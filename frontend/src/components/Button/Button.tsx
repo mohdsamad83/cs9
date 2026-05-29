@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { twMerge } from 'tailwind-merge'
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
 
@@ -28,7 +29,7 @@ function Button({
   }
 
   return (
-    <button type={type} className={`${base} ${variants[variant]} ${className}`} {...props}>
+    <button type={type} className={twMerge(base, variants[variant], className)} {...props}>
       {children}
     </button>
   )

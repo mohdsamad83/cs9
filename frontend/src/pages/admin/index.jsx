@@ -16,7 +16,7 @@ function AdminHome() {
       <header className="border-b border-[#c4c7c7] bg-[#f8f9fa]/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-300 items-center justify-between px-2 py-3 sm:px-2 sm:py-4">
           <span className="font-display text-[18px] font-bold text-black sm:text-[22px]">
-            rogāre
+            Rogāre
           </span>
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => navigate('/')}>

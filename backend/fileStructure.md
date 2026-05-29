@@ -1,4 +1,4 @@
-# Rogare Backend — File Structure
+# Rogāre Backend — File Structure
 
 ```
 backend/

@@ -1,4 +1,4 @@
-# rogāre — Internship FAQ Platform
+# Rogāre — Internship FAQ Platform
 
 A full-stack Q&A platform for lab interns at IIT Ropar, built with React + Vite (frontend) and Node.js + Express + MongoDB (backend). Supports role-based access (user / admin), FAQ browsing, search, and a spark-based engagement system.
 

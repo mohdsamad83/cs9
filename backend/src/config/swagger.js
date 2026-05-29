@@ -6,9 +6,9 @@ const swaggerSpec = swaggerJsdoc({
   definition: {
     openapi: '3.0.3',
     info: {
-      title: 'rogāre API',
+      title: 'Rogāre API',
       version: '1.0.0',
-      description: 'API documentation for the rogāre backend service.',
+      description: 'API documentation for the Rogāre backend service.',
     },
     servers: [
       {
