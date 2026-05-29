@@ -41,11 +41,30 @@ export async function getMappedRoles(userId) {
 
 export async function getUserRoles(user) {
   const mappedRoles = await getMappedRoles(user.user_id)
-  const fallbackRole = normalizeRoleName(user.role)
 
-  return mappedRoles.length ? mappedRoles : fallbackRole ? [fallbackRole] : []
+  return mappedRoles.length ? mappedRoles : ['USER']
 }
 
 export function getPrimaryRole(roles) {
   return ROLE_PRIORITY.find((role) => roles.includes(role)) || 'USER'
+}
+
+export async function getUserIdsByRole(roleName) {
+  const normalizedRole = normalizeRoleName(roleName)
+
+  if (!normalizedRole) {
+    return []
+  }
+
+  const role = await Role.findOne({ name: normalizedRole.toLowerCase() }).lean()
+
+  if (!role) {
+    return []
+  }
+
+  const mappings = await UserRoleMapper.find({ role_id: role.role_id })
+    .select('user_id')
+    .lean()
+
+  return mappings.map((mapping) => mapping.user_id)
 }

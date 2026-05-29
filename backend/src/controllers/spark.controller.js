@@ -2,6 +2,7 @@ import Answer from '../models/answer.model.js'
 import SparkTransaction from '../models/spark-transaction.model.js'
 import UserProfile from '../models/user-profile.model.js'
 import User from '../models/user.model.js'
+import { getUserIdsByRole } from '../services/role.service.js'
 import {
   createHttpError,
   getCreatedAtFilter,
@@ -64,7 +65,9 @@ export async function getLeaderboard(req, res, next) {
       throw createHttpError(400, 'Invalid role')
     }
 
-    const userFilter = role ? { role } : {}
+    const roleUserIds = role ? await getUserIdsByRole(role) : null
+    const roleUserIdSet = roleUserIds ? new Set(roleUserIds) : null
+    const userFilter = roleUserIds ? { user_id: { $in: roleUserIds } } : {}
     let leaderboard
 
     if (type === 'acceptedAnswers') {
@@ -74,9 +77,11 @@ export async function getLeaderboard(req, res, next) {
         { $sort: { score: -1 } },
         { $limit: limit * 3 },
       ])
+      const candidateUserIds = roleUserIdSet
+        ? rows.map((row) => row._id).filter((userId) => roleUserIdSet.has(userId))
+        : rows.map((row) => row._id)
       const users = await User.find({
-        ...userFilter,
-        user_id: { $in: rows.map((row) => row._id) },
+        user_id: { $in: candidateUserIds },
       }).lean()
       const byId = Object.fromEntries(users.map((user) => [user.user_id, user]))
 
@@ -90,9 +95,11 @@ export async function getLeaderboard(req, res, next) {
         }))
     } else if (type === 'reputation') {
       const profiles = await UserProfile.find().sort({ reputation: -1 }).limit(limit * 3).lean()
+      const candidateUserIds = roleUserIdSet
+        ? profiles.map((profile) => profile.user_id).filter((userId) => roleUserIdSet.has(userId))
+        : profiles.map((profile) => profile.user_id)
       const users = await User.find({
-        ...userFilter,
-        user_id: { $in: profiles.map((profile) => profile.user_id) },
+        user_id: { $in: candidateUserIds },
       }).lean()
       const byId = Object.fromEntries(users.map((user) => [user.user_id, user]))
 

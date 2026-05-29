@@ -112,7 +112,6 @@ async function seedUsers() {
       name: u.name,
       email: u.email,
       passwordHash,
-      role: u.role,
       status: 'active',
       is_expert: u.is_expert ?? false,
       is_verified_expert: u.is_verified_expert ?? false,

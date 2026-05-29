@@ -31,5 +31,6 @@ const userRoleMapperSchema = new mongoose.Schema(
 )
 
 userRoleMapperSchema.index({ user_id: 1, role_id: 1 }, { unique: true })
+userRoleMapperSchema.index({ role_id: 1, user_id: 1 })
 
 export default mongoose.model('UserRoleMapper', userRoleMapperSchema)

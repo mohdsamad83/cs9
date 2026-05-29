@@ -33,13 +33,12 @@ try {
       name,
       email,
       passwordHash: await argon2.hash(password),
-      role: 'ADMIN',
       status: 'active',
     })
   } else {
     await User.updateOne(
       { user_id: user.user_id },
-      { $set: { role: 'ADMIN', status: 'active' } },
+      { $set: { status: 'active' } },
     )
   }
 

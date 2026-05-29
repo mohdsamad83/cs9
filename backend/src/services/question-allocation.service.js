@@ -2,6 +2,7 @@ import Question from '../models/question.model.js'
 import User from '../models/user.model.js'
 import QuestionAssignmentLog from '../models/question-assignment-log.model.js'
 import Notification from '../models/notification.model.js'
+import { getUserIdsByRole } from './role.service.js'
 import { appendFeatureLog } from '../utils/featureLogger.js'
 
 const UNANSWERED_THRESHOLD_HOURS = 48
@@ -20,20 +21,21 @@ async function getResolverLoad(resolverId) {
  * Returns the least-loaded active resolver, or null if none available.
  */
 async function findLeastLoadedResolver(excludeIds = []) {
+  const resolverIds = await getUserIdsByRole('RESOLVER')
+
   const resolvers = await User.find({
-    role: 'RESOLVER',
-    is_active: true,
-    _id: { $nin: excludeIds },
-  }).select('_id name email').lean()
+    user_id: { $in: resolverIds, $nin: excludeIds },
+    status: 'active',
+  }).select('user_id name email').lean()
 
   if (resolvers.length === 0) return null
 
   const loads = await Promise.all(
     resolvers.map(async r => ({
-      _id: r._id.toString(),
+      user_id: r.user_id,
       name: r.name,
       email: r.email,
-      load: await getResolverLoad(r._id.toString()),
+      load: await getResolverLoad(r.user_id),
     })),
   )
 
@@ -98,13 +100,13 @@ export async function allocateUnansweredQuestions() {
       // Update question
       await Question.updateOne(
         { _id: question._id },
-        { assigned_to: resolver._id },
+        { assigned_to: resolver.user_id },
       )
 
       // Audit log
       await QuestionAssignmentLog.create({
         question_id: question.question_id,
-        resolver_id: resolver._id,
+        resolver_id: resolver.user_id,
         assigned_by: 'SYSTEM',
         reason: 'auto-unanswered-48h',
         assigned_at: new Date(),
@@ -112,19 +114,19 @@ export async function allocateUnansweredQuestions() {
 
       // Notification to resolver
       await Notification.create({
-        recipient_id: resolver._id,
+        recipient_id: resolver.user_id,
         type: 'AUTO_ASSIGNMENT',
         message: `Question "${question.title}" has been auto-assigned to you. It was posted ${queuedDurationHrs} hours ago.`,
         link: `/dashboard/query/${question.question_id}`,
         is_read: false,
  })
 
-      assignedResolverIds.add(resolver._id)
+      assignedResolverIds.add(resolver.user_id)
 
       await appendFeatureLog({
         event: 'ASSIGNMENT',
         question_id: question.question_id,
-        resolver_id: resolver._id,
+        resolver_id: resolver.user_id,
         resolver_name: resolver.name,
         assigned_by: 'SYSTEM',
         queued_duration_hrs: queuedDurationHrs,
