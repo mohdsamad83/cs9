@@ -21,8 +21,9 @@ function UserLayout() {
   const [isLeftPaneCollapsed, setIsLeftPaneCollapsed] = useState(false)
   const [currentView, setCurrentView]     = useState('dashboard')
   const [sidebarNav, setSidebarNav]        = useState('Dashboard')
-  const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [notifSidebarOpen, setNotifSidebarOpen] = useState(false)
+  const [selectedTags, setSelectedTags]    = useState([])
+  const [searchQuery, setSearchQuery]      = useState('')
 
   const initials = user?.name
     ? user.name.trim().split(/\s+/).map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -99,16 +100,16 @@ function UserLayout() {
           <DashboardHeader
             user={user}
             initials={initials}
-            currentView={currentView}
-            showRaiseQuery={location.pathname !== '/raise-query'}
             notifications={notifications}
             unreadCount={unreadCount}
             isDark={isDark}
-            onSearchOpen={() => setSearchModalOpen(true)}
-            onRaiseQuery={() => navigate('/raise-query')}
+            toggleDark={toggleDark}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
             onNotifOpen={handleNotifOpen}
             onNotifViewAll={handleNotifViewAll}
-            onDarkToggle={toggleDark}
             onProfileSettings={() => navigate('/profile')}
             onLogout={handleLogout}
           />
@@ -121,9 +122,10 @@ function UserLayout() {
               currentView,
               setCurrentView,
               initials,
-              searchModalOpen,
-              setSearchModalOpen,
-              openSearchModal: () => setSearchModalOpen(true),
+              searchQuery,
+              setSearchQuery,
+              selectedTags,
+              setSelectedTags,
             }}
           />
         </div>
