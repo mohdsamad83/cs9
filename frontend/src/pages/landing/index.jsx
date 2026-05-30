@@ -1,3 +1,4 @@
+/* global __PROJECT_NAME__, __PROJECT_TAGLINE__ */
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -248,9 +249,14 @@ function Landing() {
         <div className="mx-auto flex w-full max-w-300 items-center justify-between px-2 py-3 sm:px-2 sm:py-4">
           <a
             href="#top"
-            className="font-display text-[18px] font-bold leading-tight text-black sm:text-[22px]"
+            className="flex flex-col"
           >
-            Rogāre
+            <span className="font-display text-[18px] font-bold leading-tight text-[#0f172a] sm:text-[22px]">
+              {__PROJECT_NAME__}
+            </span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#444748]">
+              {__PROJECT_TAGLINE__}
+            </span>
           </a>
           <Button variant="secondary" className="text-[10px] bg-[#8c6a40]/80 text-white" onClick={handleHeaderButtonClick}>
             {currentUser ? 'Dashboard' : 'Login'}
