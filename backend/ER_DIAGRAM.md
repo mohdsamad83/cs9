@@ -101,8 +101,7 @@ erDiagram
         string kind "faq|community"
         string title
         string slug UK "sparse"
-        string body
-        string body_plain
+        string body "normalized on save via pre('save') hook"
         array  tags
         number spark_bounty
         string author_id FK
@@ -135,7 +134,6 @@ erDiagram
         string author_id FK
         string author_role
         string body
-        string body_plain
         array  references "{url,label}"
         array  attachments "{file_url,file_name,mime_type}"
         boolean is_expert

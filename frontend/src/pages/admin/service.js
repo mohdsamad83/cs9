@@ -19,6 +19,36 @@ export async function logoutAdmin() {
   await axisPrivate().post('/api/auth/logout')
 }
 
+// ─── User management ─────────────────────────────────────────────────────────
+
+export async function fetchUsers({ page = 1, limit = 10, search = '', role = '', status = '' } = {}) {
+  const params = new URLSearchParams({ page, limit })
+  if (search.trim()) params.set('search', search.trim())
+  if (role) params.set('role', role)
+  if (status) params.set('status', status)
+  const { data } = await axisPrivate().get(`/api/users?${params}`)
+  // users: [{ id, name, email, roles, avatarUrl, sparkPoints, status, createdAt }]
+  return {
+    users: data.users || [],
+    pagination: data.pagination || { page, pages: 0, total: 0 },
+  }
+}
+
+export async function assignUserRole(userId, role) {
+  const { data } = await axisPrivate().post(`/api/admin/users/${userId}/roles`, { role })
+  return data
+}
+
+export async function removeUserRole(userId, roleName) {
+  const { data } = await axisPrivate().delete(`/api/admin/users/${userId}/roles/${roleName}`)
+  return data
+}
+
+export async function updateUserStatus(userId, status, reason = '') {
+  const { data } = await axisPrivate().patch(`/api/users/${userId}/status`, { status, reason })
+  return data
+}
+
 // ─── Queries management ──────────────────────────────────────────────────────
 
 export async function fetchAdminQuestions({ page = 1, limit = 10, search = '' } = {}) {

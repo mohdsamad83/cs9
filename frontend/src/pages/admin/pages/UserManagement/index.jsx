@@ -1,0 +1,348 @@
+import { useCallback, useEffect, useState } from 'react'
+import {
+  Users, Search, ShieldCheck, ChevronLeft, ChevronRight, Loader,
+  Check, Zap, Mail, Calendar, UserCog,
+} from 'lucide-react'
+import Modal from '../../../../components/Modal/Modal'
+import Button from '../../../../components/Button/Button'
+import Input from '../../../../components/Input/Input'
+import { notifyError, notifySuccess } from '../../../../lib/notify'
+import { fetchUsers, assignUserRole, removeUserRole, updateUserStatus } from '../../service'
+
+const PAGE_SIZE = 10
+const ROLES = ['USER', 'RESOLVER', 'ADMIN']
+const STATUSES = ['active', 'disabled', 'suspended']
+
+const ROLE_STYLE = {
+  USER:     'bg-gray-100 text-gray-600',
+  RESOLVER: 'bg-blue-50 text-blue-700',
+  ADMIN:    'bg-purple-50 text-purple-700',
+}
+const STATUS_STYLE = {
+  active:    'bg-emerald-50 text-emerald-700',
+  disabled:  'bg-gray-100 text-gray-600',
+  suspended: 'bg-red-50 text-red-700',
+}
+
+function initialsOf(name = '') {
+  return name.trim().split(/\s+/).map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'U'
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function UserManagementView() {
+  const [users, setUsers]           = useState([])
+  const [pagination, setPagination] = useState({ page: 1, pages: 0, total: 0 })
+  const [loading, setLoading]       = useState(true)
+
+  const [page, setPage]             = useState(1)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch]         = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+
+  // Modal state
+  const [managing, setManaging]     = useState(null)   // user being managed, or null
+  const [busyRole, setBusyRole]     = useState(null)   // role with an in-flight toggle
+  const [statusDraft, setStatusDraft] = useState('active')
+  const [statusReason, setStatusReason] = useState('')
+  const [busyStatus, setBusyStatus] = useState(false)
+
+  // Debounce the search box.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  // Reset to page 1 whenever filters change.
+  useEffect(() => { setPage(1) }, [search, roleFilter, statusFilter])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { users: rows, pagination: meta } = await fetchUsers({
+        page, limit: PAGE_SIZE, search, role: roleFilter, status: statusFilter,
+      })
+      setUsers(rows)
+      setPagination(meta)
+    } catch {
+      setUsers([])
+      setPagination({ page: 1, pages: 0, total: 0 })
+      notifyError('Could not load users.')
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search, roleFilter, statusFilter])
+
+  useEffect(() => { load() }, [load])
+
+  const totalPages = Math.max(1, pagination.pages || 1)
+
+  function openManage(user) {
+    setManaging(user)
+    setStatusDraft(user.status || 'active')
+    setStatusReason('')
+  }
+
+  // Apply role change locally to both the list and the open modal.
+  function applyRoles(userId, roles) {
+    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, roles } : u)))
+    setManaging(prev => (prev && prev.id === userId ? { ...prev, roles } : prev))
+  }
+
+  async function toggleRole(role) {
+    if (!managing || busyRole) return
+    const has = managing.roles?.includes(role)
+    setBusyRole(role)
+    try {
+      if (has) {
+        await removeUserRole(managing.id, role)
+        applyRoles(managing.id, managing.roles.filter(r => r !== role))
+        notifySuccess(`Removed ${role} role.`)
+      } else {
+        await assignUserRole(managing.id, role)
+        applyRoles(managing.id, [...(managing.roles || []), role])
+        notifySuccess(`Granted ${role} role.`)
+      }
+    } catch (error) {
+      notifyError(error?.response?.data?.message || `Could not update ${role} role.`)
+    } finally {
+      setBusyRole(null)
+    }
+  }
+
+  async function applyStatus() {
+    if (!managing || busyStatus) return
+    setBusyStatus(true)
+    try {
+      await updateUserStatus(managing.id, statusDraft, statusReason)
+      setUsers(prev => prev.map(u => (u.id === managing.id ? { ...u, status: statusDraft } : u)))
+      setManaging(prev => ({ ...prev, status: statusDraft }))
+      notifySuccess('Account status updated.')
+    } catch (error) {
+      notifyError(error?.response?.data?.message || 'Could not update status.')
+    } finally {
+      setBusyStatus(false)
+    }
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5 lg:p-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="font-display flex items-center gap-2 text-[24px] font-semibold text-text-primary">
+            <Users className="h-6 w-6 text-brand" strokeWidth={1.8} /> User Management
+          </h1>
+          <p className="mt-2 text-[13px] text-text-secondary">
+            Manage members, promote roles, and control account status.
+          </p>
+        </div>
+        <span className="rounded-full bg-bg-tertiary px-3 py-1 text-[12px] font-semibold text-text-muted">
+          {pagination.total} users
+        </span>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" strokeWidth={1.8} />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Search name or email…"
+            className="w-60 rounded-lg border border-border bg-bg-card py-2 pl-8 pr-3 text-[12px] text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
+          />
+        </div>
+        <select
+          value={roleFilter}
+          onChange={e => setRoleFilter(e.target.value)}
+          className="rounded-lg border border-border bg-bg-card px-3 py-2 text-[12px] text-text-primary focus:border-brand focus:outline-none"
+        >
+          <option value="">All roles</option>
+          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-border bg-bg-card px-3 py-2 text-[12px] capitalize text-text-primary focus:border-brand focus:outline-none"
+        >
+          <option value="">All statuses</option>
+          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-16 text-[13px] text-text-muted">
+          <Loader className="h-4 w-4 animate-spin" /> Loading users…
+        </div>
+      ) : users.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-16 text-[13px] text-text-muted">
+          <Users className="h-8 w-8 text-[#d1d5db]" strokeWidth={1.5} />
+          No users match this view.
+        </div>
+      ) : (
+        <>
+          <div className="overflow-hidden rounded-xl border border-border-light bg-bg-card shadow-sm">
+            {users.map(user => (
+              <div
+                key={user.id}
+                className="flex flex-wrap items-center gap-4 border-b border-border-light px-5 py-4 last:border-b-0"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-[12px] font-bold text-white">
+                  {initialsOf(user.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold text-text-primary">{user.name}</p>
+                  <p className="flex items-center gap-1 truncate text-[12px] text-text-muted">
+                    <Mail className="h-3 w-3" strokeWidth={1.8} /> {user.email || '—'}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(user.roles || []).map(role => (
+                    <span key={role} className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${ROLE_STYLE[role] || ROLE_STYLE.USER}`}>
+                      {role}
+                    </span>
+                  ))}
+                </div>
+
+                <span className="flex items-center gap-1 text-[12px] font-semibold text-amber-600">
+                  <Zap className="h-3.5 w-3.5" strokeWidth={1.8} /> {user.sparkPoints ?? 0}
+                </span>
+
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS_STYLE[user.status] || STATUS_STYLE.active}`}>
+                  {user.status || 'active'}
+                </span>
+
+                <span className="hidden items-center gap-1 text-[11px] text-text-muted lg:flex">
+                  <Calendar className="h-3 w-3" strokeWidth={1.8} /> {formatDate(user.createdAt)}
+                </span>
+
+                <Button variant="secondary" onClick={() => openManage(user)} className="min-h-8 px-3 text-[12px]">
+                  <UserCog className="mr-1.5 h-3.5 w-3.5" strokeWidth={1.8} /> Manage
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                aria-label="Previous page"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-light text-text-muted transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-light disabled:hover:text-text-muted"
+              >
+                <ChevronLeft className="h-4 w-4" strokeWidth={1.8} />
+              </button>
+              <span className="text-[11px] font-medium text-text-muted">{pagination.page} / {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                aria-label="Next page"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-light text-text-muted transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border-light disabled:hover:text-text-muted"
+              >
+                <ChevronRight className="h-4 w-4" strokeWidth={1.8} />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Manage modal */}
+      <Modal isOpen={!!managing} onClose={() => setManaging(null)} title="Manage user" panelClassName="sm:p-8">
+        {managing && (
+          <div>
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand text-[14px] font-bold text-white">
+                {initialsOf(managing.name)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[16px] font-bold text-text-primary">{managing.name}</p>
+                <p className="truncate text-[12px] text-text-muted">{managing.email}</p>
+              </div>
+            </div>
+
+            {/* Roles */}
+            <div className="mb-6">
+              <p className="mb-2 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide text-text-muted">
+                <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.8} /> Roles / Badges
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {ROLES.map(role => {
+                  const has = managing.roles?.includes(role)
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => toggleRole(role)}
+                      disabled={busyRole === role}
+                      className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition disabled:opacity-50 ${
+                        has
+                          ? 'border-brand bg-brand text-white'
+                          : 'border-border bg-bg-card text-text-secondary hover:border-brand hover:text-brand'
+                      }`}
+                    >
+                      {busyRole === role
+                        ? <Loader className="h-3.5 w-3.5 animate-spin" />
+                        : has && <Check className="h-3.5 w-3.5" strokeWidth={2.4} />}
+                      {role}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-text-muted">
+                Click to grant or revoke. Promote to <strong>RESOLVER</strong> to let a member answer as an expert, or <strong>ADMIN</strong> for full access.
+              </p>
+            </div>
+
+            {/* Status */}
+            <div>
+              <p className="mb-2 text-[12px] font-bold uppercase tracking-wide text-text-muted">Account status</p>
+              <div className="mb-3 flex gap-2">
+                {STATUSES.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatusDraft(s)}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-[12px] font-semibold capitalize transition ${
+                      statusDraft === s
+                        ? 'border-brand bg-brand/10 text-brand'
+                        : 'border-border bg-bg-card text-text-secondary hover:border-brand'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {statusDraft !== 'active' && (
+                <Input
+                  value={statusReason}
+                  onChange={e => setStatusReason(e.target.value)}
+                  placeholder="Reason (optional)"
+                  className="mb-3"
+                />
+              )}
+              <div className="flex justify-end">
+                <Button onClick={applyStatus} disabled={busyStatus || statusDraft === (managing.status || 'active')}>
+                  {busyStatus ? 'Updating…' : 'Update status'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+export default UserManagementView

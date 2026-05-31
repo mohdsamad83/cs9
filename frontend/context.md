@@ -75,7 +75,7 @@ pages/user/layout.jsx
 | `Button` | All buttons | `variant` (`primary`\|`secondary`\|`ghost`), `onClick`, `className` |
 | `Input` | Text inputs | `type`, `value`, `onChange`, `placeholder`, `className` |
 | `Modal` | Dialog overlay | `isOpen`, `onClose`, `position` (`center`\|`top-right`), `title` |
-| `Select` | Dropdown select | `options`, `value`, `onChange`, `placeholder` |
+| `Select` | Dropdown select (scrollable, max-h-60) | `options`, `value`, `onChange`, `placeholder` (TypeScript `.tsx`) |
 | `Footer` | Site-wide footer | — |
 
 ## Notifications / Toasts
