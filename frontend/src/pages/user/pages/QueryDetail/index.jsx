@@ -91,7 +91,7 @@ function QueryDetailPage() {
   async function handleComment(answerId, body, parentId) {
     try {
       await postComment(answerId, body, parentId)
-      await load()
+      await refresh()
     } catch (err) {
       notifyError(err.response?.data?.message || 'Could not post comment.')
     }
@@ -101,7 +101,7 @@ function QueryDetailPage() {
     try {
       await resolveQuestion(queryId, resolved)
       notifySuccess(resolved ? 'Question marked as solved.' : 'Question reopened.')
-      await load()
+      await refresh()
     } catch (err) {
       notifyError(err.response?.data?.message || 'Could not update the question.')
     }
@@ -111,7 +111,7 @@ function QueryDetailPage() {
     try {
       await acceptAnswer(queryId, answerId)
       notifySuccess('Marked as the resolution. Question resolved.')
-      await load()
+      await refresh()
     } catch (err) {
       notifyError(err.response?.data?.message || 'Could not mark resolution.')
     }
@@ -131,7 +131,7 @@ function QueryDetailPage() {
       await postAnswer(queryId, reply.trim())
       setReply('')
       notifySuccess('Your reply has been posted.')
-      await load()
+      await refresh()
     } catch (err) {
       notifyError(err.response?.data?.message || 'Could not post your reply.')
     } finally {
