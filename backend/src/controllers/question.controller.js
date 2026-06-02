@@ -149,7 +149,7 @@ export async function createQuestion(req, res, next) {
       body: req.body.body,
       tags: req.body.tags,
       spark_bounty: sparkBounty,
-      is_anonymous: req.body.isAnonymous === true,
+      is_anonymous: req.body.isAnonymous === true || req.body.is_anonymous === true,
       author_id: req.user.userId,
     })
 
@@ -540,28 +540,38 @@ export async function voteQuestion(req, res, next) {
 
     if (existingVote) {
       await existingVote.deleteOne()
-      await Question.updateOne(
-        { question_id: questionId },
-        { $inc: { upvotes: -1 } },
-      )
     } else {
-      await Vote.create({
-        user_id: userId,
-        target_type: 'question',
-        target_id: question.question_id,
-        value: 1,
-      })
-      await Question.updateOne(
-        { question_id: questionId },
-        { $inc: { upvotes: 1 } },
-      )
+      try {
+        await Vote.create({
+          user_id: userId,
+          target_type: 'question',
+          target_id: question.question_id,
+          value: 1,
+        })
+      } catch (error) {
+        // Concurrent double-click can race past the findOne and hit the
+        // unique {user_id, target_type, target_id} index. The vote already
+        // exists, so treat it as an idempotent no-op rather than a 500.
+        if (error?.code !== 11000) throw error
+      }
     }
 
-    const updated = await Question.findOne({ question_id: questionId }).select('upvotes').lean()
+    // Recompute the cached counter from the Vote collection (the source of
+    // truth) instead of a blind $inc. This is self-healing: any prior drift
+    // is corrected on the next vote, and it works without a replica set.
+    const upvotes = await Vote.countDocuments({
+      target_type: 'question',
+      target_id: question.question_id,
+      value: 1,
+    })
+    await Question.updateOne(
+      { question_id: questionId },
+      { $set: { upvotes } },
+    )
 
     res.json({
       success: true,
-      upvotes: updated?.upvotes || 0,
+      upvotes,
       hasVoted: !existingVote,
     })
   } catch (error) {
