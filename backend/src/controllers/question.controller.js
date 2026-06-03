@@ -6,6 +6,7 @@ import { QuestionView } from '../models/question_view.model.js'
 import User from '../models/user.model.js'
 import UserProfile from '../models/user-profile.model.js'
 import Vote from '../models/vote.model.js'
+import { publishDomainEvent } from '../services/domain-events.service.js'
 import { awardSpark, reserveBounty } from '../services/spark.service.js'
 import {
   createHttpError,
@@ -623,6 +624,13 @@ export async function voteQuestion(req, res, next) {
       { $set: { upvotes } },
     )
 
+    publishDomainEvent('question.vote.changed', {
+      questionId: question.question_id,
+      authorId: question.author_id,
+      upvotes,
+      hasVoted: !existingVote,
+    })
+
     res.json({
       success: true,
       upvotes,
@@ -674,4 +682,3 @@ export async function getQuestionCounts(req, res, next) {
     next(error)
   }
 }
-
