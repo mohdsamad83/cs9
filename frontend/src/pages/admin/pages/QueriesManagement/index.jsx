@@ -118,10 +118,9 @@ function QueriesManagementView({ searchQuery = '', onOpenQuery }) {
               className="h-7 cursor-pointer bg-transparent px-2 text-[12px] font-medium text-text-primary outline-none"
             >
               <option value="">All Statuses</option>
-              <option value="open">Open (Unresolved)</option>
               <option value="unanswered">Unanswered</option>
               <option value="answered">Answered</option>
-              <option value="resolved">Resolved (Closed)</option>
+              <option value="closed">Resolved (Closed)</option>
               <option value="removed">Removed</option>
             </select>
             <div className="h-4 w-px bg-border-light" />

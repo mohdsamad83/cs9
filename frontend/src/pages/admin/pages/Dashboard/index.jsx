@@ -84,7 +84,7 @@ function DashboardView({ dashboardData, isLoading, onRefresh, onNavigate }) {
     let active = true
     async function fetchUnresolved() {
       try {
-        const { data } = await axisPrivate().get('/api/questions?status=open&limit=5')
+        const { data } = await axisPrivate().get('/api/questions?status=unanswered&limit=5')
         if (active && data) {
           setUnresolvedQueries(data.questions || [])
           setUnresolvedCount(data.pagination?.total || 0)
@@ -170,7 +170,7 @@ function DashboardView({ dashboardData, isLoading, onRefresh, onNavigate }) {
           </div>
           <button
             type="button"
-            onClick={() => onNavigate?.('queriesManagement', { state: { status: 'open' } })}
+            onClick={() => onNavigate?.('queriesManagement', { state: { status: 'unanswered' } })}
             className="flex items-center gap-2 text-[12px] font-semibold text-brand transition hover:text-brand-hover"
           >
             <HelpCircle className="h-4 w-4" strokeWidth={1.8} />
