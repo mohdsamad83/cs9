@@ -375,6 +375,7 @@ export async function listQuestions(req, res, next) {
     } else if (req.query.hasApproval === 'false') {
       filter.approval_status = { $ne: 'pending' }
     }
+
     if (!isAdmin(req)) {
       // moderation_status is applied in buildQuestionBaseFilter; resolve the
       // soft-delete visibility against whatever status filter is in effect.
