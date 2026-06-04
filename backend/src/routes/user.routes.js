@@ -10,6 +10,14 @@ import { checkRole, verifyToken } from '../middleware/authMiddleware.js'
 
 const router = Router()
 
+// Block ADMINs from user-scoped routes — they belong in admin.routes.js
+router.use(verifyToken, (req, res, next) => {
+  if (req.user?.roles?.includes('ADMIN')) {
+    return res.status(403).json({ message: 'Admins cannot access user routes' })
+  }
+  next()
+})
+
 /**
  * @openapi
  * /api/users:
@@ -22,10 +30,10 @@ const router = Router()
  *       403:
  *         description: ADMIN role required.
  */
-router.get('/', verifyToken, checkRole('ADMIN'), listUsers)
-router.get('/me/contributions', verifyToken, getMyContributions)
-router.get('/:userId', verifyToken, getUserById)
-router.get('/:userId/contributions', verifyToken, getUserContributions)
-router.patch('/:userId/status', verifyToken, checkRole('ADMIN'), updateUserStatus)
+router.get('/', checkRole('ADMIN'), listUsers)
+router.get('/me/contributions', getMyContributions)
+router.get('/:userId', getUserById)
+router.get('/:userId/contributions', getUserContributions)
+router.patch('/:userId/status', checkRole('ADMIN'), updateUserStatus)
 
 export default router
