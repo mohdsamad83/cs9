@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   MessageSquare, ChevronUp, Zap, Tag, Pin, Lock, CheckCircle,
   Clock, User, ChevronLeft, ChevronRight, Loader, VenetianMask, Filter
@@ -41,7 +41,7 @@ function formatDate(value) {
 
 function QueriesManagementView({ searchQuery = '', onOpenQuery }) {
   const location = useLocation()
-
+  const navigate = useNavigate()
   const [items, setItems]         = useState([])
   const [pagination, setPagination] = useState({ page: 1, pages: 0, total: 0 })
   const [loading, setLoading]     = useState(true)
@@ -137,7 +137,7 @@ function QueriesManagementView({ searchQuery = '', onOpenQuery }) {
             <select
               value={filterExpert}
               onChange={(e) => setFilterExpert(e.target.value)}
-              className="h-7 cursor-pointer bg-transparent px-2 text-[12px] font-medium text-text-primary outline-none"
+              className="h-7 cursor-pointer bg-transparent px-2 text-[12px] font-medium text-text-primary outline-none pr-1"
             >
               <option value="">Any Expert</option>
               <option value="true">Expert Answered</option>
@@ -150,9 +150,9 @@ function QueriesManagementView({ searchQuery = '', onOpenQuery }) {
               className="h-7 cursor-pointer bg-transparent px-2 text-[12px] font-medium text-text-primary outline-none pr-1"
             >
               <option value="">Any Approval</option>
-              <option value="true">Under Approval</option>
+              <option value="true">Approval Pending</option>
               <option value="approved">Approved</option>
-              <option value="false">No Approval Needed</option>
+              <option value="false">No Approval</option>
             </select>
           </div>
           

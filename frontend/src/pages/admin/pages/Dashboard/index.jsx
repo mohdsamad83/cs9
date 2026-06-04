@@ -97,6 +97,26 @@ function DashboardView({ dashboardData, isLoading, onRefresh, onNavigate, onOpen
     return () => { active = false }
   }, [])
 
+  const [unresolvedQueries, setUnresolvedQueries] = useState([])
+  const [unresolvedCount, setUnresolvedCount] = useState(0)
+
+  useEffect(() => {
+    let active = true
+    async function fetchUnresolved() {
+      try {
+        const { data } = await axisPrivate().get('/api/questions?status=unanswered&limit=5')
+        if (active && data) {
+          setUnresolvedQueries(data.questions || [])
+          setUnresolvedCount(data.pagination?.total || 0)
+        }
+      } catch (err) {
+        console.error('Failed to fetch unresolved queries', err)
+      }
+    }
+    fetchUnresolved()
+    return () => { active = false }
+  }, [])
+
   return (
     <div className="flex-1 overflow-y-auto p-5 lg:p-8">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -225,6 +245,7 @@ function DashboardView({ dashboardData, isLoading, onRefresh, onNavigate, onOpen
         </div>
       </section>
 
+<<<<<<< HEAD
 
 
 
@@ -352,6 +373,9 @@ function DashboardView({ dashboardData, isLoading, onRefresh, onNavigate, onOpen
           </div>
         </section>
 
+=======
+      <div className="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-2">
+>>>>>>> origin/samad_sub_branch
         <section className="rounded-lg border border-border-light bg-bg-card p-5 shadow-sm">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-[17px] font-bold text-text-primary">Query Volume by Category</h2>
