@@ -10,6 +10,7 @@ import {
   TrendingDown,
   TrendingUp,
   HelpCircle,
+  Lock,
 } from 'lucide-react'
 import {
   Bar,
