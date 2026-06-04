@@ -239,14 +239,25 @@ function DashboardView({ dashboardData, isLoading, onRefresh, onNavigate, onOpen
             {formatNumber(usersMetrics.total)}
           </p>
         </div>
-        <div className="rounded-lg border border-border-light bg-bg-card p-4">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted">
-            New this week
-          </p>
-          <p className="mt-2 text-[22px] font-semibold text-text-primary">
-            {formatNumber(usersMetrics.thisWeek)}
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate?.('queriesManagement', { state: { hasApproval: 'true' } })}
+          className="rounded-lg border border-border-light bg-bg-card p-4 text-left transition hover:border-orange-500 hover:shadow-md"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+                Under Approval
+              </p>
+              <p className="mt-2 text-[22px] font-semibold text-text-primary">
+                {formatNumber(metrics.seekApproval?.total || 0)}
+              </p>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
+              <Lock className="h-4 w-4" strokeWidth={1.8} />
+            </div>
+          </div>
+        </button>
         <div className="rounded-lg border border-border-light bg-bg-card p-4">
           <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted">
             Spark Ledger
