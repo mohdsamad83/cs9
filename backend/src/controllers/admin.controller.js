@@ -184,6 +184,14 @@ export async function getAdminDashboard(req, res, next) {
       hourlyTrafficAggregation(since24h),
     ])
 
+    const recentUserIds = recentUsers.map((u) => u.user_id)
+    const recentProfiles = await UserProfile.find({ user_id: { $in: recentUserIds } }).select('user_id display_name').lean()
+    const profileMap = Object.fromEntries(recentProfiles.map((p) => [p.user_id, p.display_name]))
+    const recentUsersWithProfileNames = recentUsers.map((u) => ({
+      ...u,
+      name: profileMap[u.user_id] || u.name,
+    }))
+
     const sparkTotal = totalSparks[0]?.total ?? 0
     const kindMap = Object.fromEntries(questionsByKind.map((k) => [k._id, k.count]))
 
@@ -207,7 +215,7 @@ export async function getAdminDashboard(req, res, next) {
       },
       recent: {
         questions: recentQuestions,
-        users: recentUsers,
+        users: recentUsersWithProfileNames,
         flags: recentFlags,
       },
       charts: {

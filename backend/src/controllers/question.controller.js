@@ -7,6 +7,7 @@ import { QuestionView } from '../models/question_view.model.js'
 
 import User from '../models/user.model.js'
 import UserProfile from '../models/user-profile.model.js'
+import { randomUUID } from 'node:crypto'
 import Vote from '../models/vote.model.js'
 import { publishDomainEvent } from '../services/domain-events.service.js'
 import { awardSpark, reserveBounty } from '../services/spark.service.js'
@@ -29,9 +30,25 @@ function slugifyTag(tag) {
 function normalizeTags(tags) {
   const cleanedTags = Array.isArray(tags)
     ? tags.map((tag) => String(tag).trim()).filter(Boolean)
-    : []
+    : (typeof tags === 'string' ? [tags.trim()].filter(Boolean) : [])
 
   return cleanedTags.length > 0 ? cleanedTags : ['General']
+}
+
+const ALLOWED_ATTACHMENT_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg'])
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024
+// Attachments are stored as binary embedded in the Question document. MongoDB
+// caps a single document at 16MB, so the combined attachment payload must stay
+// safely under that, leaving headroom for the rest of the document.
+const MAX_TOTAL_ATTACHMENTS_SIZE = 12 * 1024 * 1024
+
+function sanitizeAttachmentsForResponse(attachments = [], questionId) {
+  return (attachments || []).map((attachment) => ({
+    attachment_id: attachment.attachment_id,
+    file_name: attachment.file_name,
+    mime_type: attachment.mime_type,
+    download_url: `/api/questions/${questionId}/attachments/${attachment.attachment_id}`,
+  }))
 }
 
 const GENERIC_FAQ_TAGS = new Set(['faq', 'internship', 'vins'])
@@ -121,8 +138,17 @@ function isAdmin(req) {
 async function getRealNameByUserId(userIds) {
   const ids = [...new Set(userIds.filter(Boolean))]
   if (!ids.length) return {}
-  const users = await User.find({ user_id: { $in: ids } }).select('user_id name').lean()
-  return Object.fromEntries(users.map((u) => [u.user_id, u.name || 'Unknown']))
+  const [users, profiles] = await Promise.all([
+    User.find({ user_id: { $in: ids } }).select('user_id name').lean(),
+    UserProfile.find({ user_id: { $in: ids } }).select('user_id display_name').lean(),
+  ])
+  const nameById = Object.fromEntries(users.map((u) => [u.user_id, u.name || 'Unknown']))
+  for (const profile of profiles) {
+    if (profile.display_name) {
+      nameById[profile.user_id] = profile.display_name
+    }
+  }
+  return nameById
 }
 
 function canManage(req, question) {
@@ -137,6 +163,34 @@ export function getQuestionStatusFilter(status) {
     return 'closed'
   }
   return status || undefined
+}
+
+export async function downloadQuestionAttachment(req, res, next) {
+  try {
+    const question = await Question.findOne({ question_id: req.params.questionId })
+    if (!question) {
+      throw createHttpError(404, 'Question not found')
+    }
+
+    const attachment = (question.attachments || []).find((a) => a.attachment_id === req.params.attachmentId)
+    if (!attachment) {
+      throw createHttpError(404, 'Attachment not found')
+    }
+
+    const fileData = Buffer.isBuffer(attachment.data)
+      ? attachment.data
+      : (attachment.data?.buffer || Buffer.from(attachment.data || []))
+
+    res.setHeader('Content-Type', attachment.mime_type || 'application/octet-stream')
+    if (req.query.preview === 'true') {
+      res.setHeader('Content-Disposition', `inline; filename="${attachment.file_name}"`)
+    } else {
+      res.setHeader('Content-Disposition', `attachment; filename="${attachment.file_name}"`)
+    }
+    res.send(fileData)
+  } catch (error) {
+    next(error)
+  }
 }
 
 /**
@@ -179,6 +233,8 @@ export async function buildQuestionBaseFilter(req) {
 
   if (!isAdmin(req)) {
     filter.moderation_status = 'approved'
+  } else {
+    filter.moderation_status = { $ne: 'rejected' }
   }
 
   return filter
@@ -210,10 +266,49 @@ export async function createQuestion(req, res, next) {
     }
 
     const model = (isAdmin(req) && req.body.kind === 'faq') ? FAQQuestion : Question
+    const rawAttachments = (req.files && req.files.length) ? req.files : req.body.attachments
+    const attachments = Array.isArray(rawAttachments)
+      ? rawAttachments.map((file) => {
+          if (file.buffer) {
+            const mimeType = file.mimetype
+            if (!ALLOWED_ATTACHMENT_TYPES.has(mimeType)) {
+              throw createHttpError(400, 'Only PDF, JPG and PNG attachments are allowed')
+            }
+            if (file.size > MAX_ATTACHMENT_SIZE) {
+              throw createHttpError(400, 'Attachments must be 5MB or smaller')
+            }
+            return {
+              attachment_id: file.attachment_id || randomUUID(),
+              file_name: file.originalname || file.file_name,
+              mime_type: mimeType,
+              data: file.buffer,
+            }
+          }
+
+          return {
+            attachment_id: file.attachment_id || randomUUID(),
+            file_name: file.file_name,
+            mime_type: file.mime_type,
+            data: file.data ? Buffer.from(file.data) : undefined,
+          }
+        })
+      : []
+
+    // Guard the 16MB BSON document limit: reject if the combined attachment
+    // payload would push the question document over a safe threshold.
+    const totalAttachmentsSize = attachments.reduce(
+      (sum, a) => sum + (Buffer.isBuffer(a.data) ? a.data.length : 0),
+      0,
+    )
+    if (totalAttachmentsSize > MAX_TOTAL_ATTACHMENTS_SIZE) {
+      throw createHttpError(400, 'Total attachments must be 12MB or smaller')
+    }
+
     question = await model.create({
       title: req.body.title,
       body: req.body.body,
-      tags: req.body.tags,
+      tags: normalizeTags(req.body.tags),
+      attachments,
       spark_bounty: sparkBounty,
       is_anonymous: req.body.isAnonymous === true || req.body.is_anonymous === true,
       author_id: req.user.userId,
@@ -231,7 +326,10 @@ export async function createQuestion(req, res, next) {
     res.status(201).json({
       success: true,
       questionId: question.question_id,
-      question: question,
+      question: {
+        ...question.toObject(),
+        attachments: sanitizeAttachmentsForResponse(question.attachments, question.question_id),
+      },
       message: 'Question created',
     })
   } catch (error) {
@@ -315,6 +413,7 @@ export async function listQuestions(req, res, next) {
       success: true,
       questions: questions.map((q) => ({
         ...q,
+        attachments: sanitizeAttachmentsForResponse(q.attachments, q.question_id),
         author_name: isAdmin(req) ? (realNameById[q.author_id] || nameById[q.author_id] || 'User') :
                      (q.is_anonymous ? 'Anonymous' : nameById[q.author_id] || 'User'),
         hasVoted: upvotedSet.has(q.question_id),
@@ -422,6 +521,7 @@ export async function getQuestionById(req, res, next) {
       success: true,
       question: {
         ...questionObj,
+        attachments: sanitizeAttachmentsForResponse(questionObj.attachments, questionObj.question_id),
         author_name: isAdmin(req)
         ? (realNameById[questionObj.author_id] || nameById[questionObj.author_id] || 'User')
         : (questionObj.is_anonymous ? 'Anonymous' : nameById[questionObj.author_id] || 'User'),
@@ -601,6 +701,40 @@ export async function acceptAnswer(req, res, next) {
     })
 
     res.json({ success: true, message: 'Answer accepted' })
+  } catch (error) {
+    next(error)
+  }
+}
+
+/** Owner/admin un-accepts the accepted answer (only allowed when question is reopened). */
+export async function unacceptAnswer(req, res, next) {
+  try {
+    const [question, answer] = await Promise.all([
+      Question.findOne({ question_id: req.params.questionId }),
+      Answer.findOne({
+        answer_id: req.params.answerId,
+        question_id: req.params.questionId,
+        is_deleted: { $ne: true },
+      }),
+    ])
+
+    if (!question || !answer) {
+      throw createHttpError(404, 'Question or answer not found')
+    }
+    if (!canManage(req, question)) {
+      throw createHttpError(403, 'Forbidden')
+    }
+    if (question.status === 'closed') {
+      throw createHttpError(409, 'Reopen the question before removing the accepted answer.')
+    }
+    if (!answer.is_accepted) {
+      throw createHttpError(409, 'This answer is not currently accepted.')
+    }
+
+    answer.is_accepted = false
+    await answer.save()
+
+    res.json({ success: true, message: 'Answer unaccepted' })
   } catch (error) {
     next(error)
   }

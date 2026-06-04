@@ -10,11 +10,13 @@ import Button from '../../../../components/Button/Button'
 import Modal from '../../../../components/Modal/Modal'
 import {
   fetchQuestionDetail, fetchQuestions, postAnswer, voteAnswer, reportContent, postComment,
-  resolveQuestion, acceptAnswer, recordQuestionView, updateComment, deleteComment,
+  resolveQuestion, acceptAnswer, unacceptAnswer, recordQuestionView, updateComment, deleteComment,
   updateAnswer, deleteAnswer,
 } from '../../service'
 import { notifySuccess, notifyError } from '../../../../lib/notify'
 import { parseMarkdown } from '../../../../lib/markdown'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
 const STATUS_LABEL = {
   unanswered: 'Active',
@@ -221,6 +223,16 @@ function QueryDetailPage() {
     }
   }
 
+  async function handleUnacceptAnswer(answerId) {
+    try {
+      await unacceptAnswer(queryId, answerId)
+      notifySuccess('Resolution removed.')
+      await refresh()
+    } catch (err) {
+      notifyError(err.response?.data?.message || 'Could not remove resolution.')
+    }
+  }
+
   async function handlePostReply() {
     if (!reply.trim()) {
       notifyError('Write something before posting.')
@@ -380,6 +392,7 @@ function QueryDetailPage() {
               body={question.body}
               isOriginal
               moderationState="visible"
+              attachments={question.attachments}
               onReport={() => setReportTarget({ type: 'question', id: question.question_id })}
             />
 
@@ -402,10 +415,13 @@ function QueryDetailPage() {
                   score={(ans.upvotes ?? 0) - (ans.downvotes ?? 0)}
                   myVote={ans.my_vote ?? 0}
                   canAccept={isOwner && !hasAcceptedAnswer && !hidden && ans.author_id !== user?.userId}
+                  canUnaccept={user?.role === 'ADMIN' && ans.is_accepted && !isResolved}
                   onAccept={() => handleAcceptAnswer(ans.answer_id)}
+                  onUnaccept={() => handleUnacceptAnswer(ans.answer_id)}
                   onVoteUp={() => handleVote(ans.answer_id, 'up')}
                   onVoteDown={() => handleVote(ans.answer_id, 'down')}
                   authorRole={ans.author_role}
+                  attachments={ans.attachments}
                   onReport={() => setReportTarget({ type: 'answer', id: ans.answer_id })}
                   onEdit={body => handleEditAnswer(ans.answer_id, body)}
                   onDelete={() => handleDeleteAnswer(ans.answer_id)}
@@ -571,8 +587,9 @@ function QueryDetailPage() {
 // ── Thread item (OP or answer) ──────────────────────────────────────────────
 function ThreadItem({
   authorName, isSelf, authorRole, date, body, isOriginal, accepted, score, myVote = 0,
-  moderationState = 'visible', canAccept = false, onAccept, onVoteUp, onVoteDown, onReport,
-  onEdit, onDelete, createdAt, children,
+  moderationState = 'visible', canAccept = false, canUnaccept = false, onAccept, onUnaccept,
+  onVoteUp, onVoteDown, onReport,
+  onEdit, onDelete, createdAt, attachments = [], children,
 }) {
   const initials = initialsOf(authorName)
   const hidden = moderationState !== 'visible'
@@ -669,10 +686,51 @@ function ThreadItem({
             </div>
           </div>
         ) : (
-          <div
-            className="markdown-body px-5 py-5 text-[14px] leading-6 text-text-secondary"
-            dangerouslySetInnerHTML={{ __html: parseMarkdown(body) }}
-          />
+          <div className="px-5 py-5">
+            <div
+              className="markdown-body text-[14px] leading-6 text-text-secondary"
+              dangerouslySetInnerHTML={{ __html: parseMarkdown(body) }}
+            />
+            {attachments.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-border-light bg-bg-primary p-4">
+                <h4 className="mb-3 text-[13px] font-semibold text-text-primary">Attachments</h4>
+                <ul className="space-y-2">
+                  {attachments.map((attachment) => {
+                    const downloadUrl = attachment.download_url?.startsWith('/api') && API_BASE_URL
+                      ? `${API_BASE_URL}${attachment.download_url}`
+                      : attachment.download_url
+
+                    const previewUrl = `${downloadUrl}?preview=true`
+
+                    return (
+                      <li key={attachment.attachment_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border-light bg-bg-card px-4 py-3">
+                        <span className="text-[13px] font-medium text-text-primary truncate max-w-[280px] sm:max-w-[400px]" title={attachment.file_name}>
+                          {attachment.file_name}
+                        </span>
+                        <div className="flex gap-2">
+                          <a
+                            href={previewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-lg bg-brand/10 px-3 py-1.5 text-[11px] font-bold text-brand transition-colors hover:bg-brand/20"
+                          >
+                            Preview
+                          </a>
+                          <a
+                            href={downloadUrl}
+                            download={attachment.file_name}
+                            className="inline-flex items-center justify-center rounded-lg border border-border-light px-3 py-1.5 text-[11px] font-bold text-text-secondary transition-colors hover:bg-bg-tertiary"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Footer (visible answers and original question) */}
@@ -702,6 +760,17 @@ function ThreadItem({
               <div />
             )}
             <div className="flex items-center gap-4">
+              {/* Owner: unaccept this answer (only when question is reopened) */}
+              {!isOriginal && canUnaccept && (
+                <button
+                  type="button"
+                  onClick={onUnaccept}
+                  className="flex items-center gap-1.5 text-[12px] font-bold text-warning transition hover:text-danger"
+                  title="Remove accepted resolution"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} /> UNACCEPT
+                </button>
+              )}
               {/* Owner: accept this answer as the resolution */}
               {!isOriginal && canAccept && (
                 <button
