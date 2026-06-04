@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft, Tag, Pin, Lock, CheckCircle, Zap, ChevronUp, MessageSquare,
-  User, Clock, Loader, ShieldCheck, VenetianMask, Eye, Award, Trash2, AlertTriangle, Send,
+  User, Clock, Loader, ShieldCheck, VenetianMask, Eye, Award, Trash2, AlertTriangle, Send, RotateCcw,
 } from 'lucide-react'
-import { fetchQuestionDetail } from '../../../user/service'
+import { fetchQuestionDetail, unacceptAnswer } from '../../../user/service'
 import { adminResolveQuery, exportToFAQ, fetchTags } from '../../service'
 import { notifyError, notifySuccess } from '../../../../lib/notify'
 import useAuthStore from '../../../../store/useAuthStore'
 import { parseMarkdown } from '../../../../lib/markdown'
 import Modal from '../../../../components/Modal/Modal'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
 const STATUS_STYLE = {
   unanswered: 'bg-amber-50 text-amber-700',
@@ -94,9 +96,10 @@ function modState(doc) {
   return 'visible'
 }
 
-function AnswerCard({ answer, comments }) {
+function AnswerCard({ answer, comments, questionStatus, onUnaccept }) {
   const score = (answer.upvotes ?? 0) - (answer.downvotes ?? 0)
   const state = modState(answer)
+  const canUnaccept = answer.is_accepted && questionStatus !== 'closed'
   return (
     <div className="rounded-xl border border-border-light bg-bg-card p-5">
       <div className="flex items-start gap-4">
@@ -165,6 +168,19 @@ function AnswerCard({ answer, comments }) {
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* Unaccept button — admin only, visible when answer is accepted and question is reopened */}
+          {canUnaccept && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={onUnaccept}
+                className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-700 transition hover:border-red-400 hover:bg-red-50 hover:text-red-700"
+              >
+                <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} /> UNACCEPT
+              </button>
             </div>
           )}
         </div>
@@ -290,6 +306,16 @@ function AdminQueryDetailView({ queryId, onBack }) {
     }
   }
 
+  async function handleUnaccept(answerId) {
+    try {
+      await unacceptAnswer(queryId, answerId)
+      notifySuccess('Resolution removed.')
+      await load()
+    } catch (err) {
+      notifyError(err?.response?.data?.message || 'Could not remove resolution.')
+    }
+  }
+
   const acceptedAnswer = data?.answers?.find(a => a.is_accepted) || data?.answers?.find(a => a.is_expert || a.is_official) || data?.answers?.[0]
   const canExport = isAdmin && data?.question && data.question.status === 'closed' && acceptedAnswer && !data.question.linked_faq_id
 
@@ -395,9 +421,9 @@ function AdminQueryDetailView({ queryId, onBack }) {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="font-mono text-[11px] font-bold text-text-muted">#{q.question_id?.slice(0, 8)}</span>
           <Badge className={q.kind === 'faq' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}>{q.kind || 'community'}</Badge>
-          <Badge className={STATUS_STYLE[q.status] || 'bg-gray-100 text-gray-600'}>{q.status}</Badge>
+          <Badge className={`${STATUS_STYLE[q.status] || 'bg-gray-100 text-gray-600'} ${q.moderation_status === 'pending' ? 'opacity-50' : ''}`}>{q.status}</Badge>
           {q.moderation_status && q.moderation_status !== 'approved' && (
-            <Badge className="bg-amber-50 text-amber-700">{q.moderation_status}</Badge>
+            <Badge className="bg-amber-50 text-amber-700">{q.moderation_status === 'pending' ? 'Under review' : q.moderation_status}</Badge>
           )}
           {q.is_anonymous && (
             <Badge className="bg-indigo-50 text-indigo-700"><VenetianMask className="mr-0.5 inline h-3 w-3" strokeWidth={2.2} /> Anonymous</Badge>
@@ -424,6 +450,46 @@ function AdminQueryDetailView({ queryId, onBack }) {
                 <Tag className="h-2.5 w-2.5" strokeWidth={2} /> {t}
               </span>
             ))}
+          </div>
+        )}
+
+        {q.attachments && q.attachments.length > 0 && (
+          <div className="mt-4 rounded-xl border border-border-light bg-bg-primary p-4">
+            <h4 className="mb-3 text-[13px] font-semibold text-text-primary">Attachments</h4>
+            <ul className="space-y-2">
+              {q.attachments.map((attachment) => {
+                const downloadUrl = attachment.download_url?.startsWith('/api') && API_BASE_URL
+                  ? `${API_BASE_URL}${attachment.download_url}`
+                  : attachment.download_url
+
+                const previewUrl = `${downloadUrl}?preview=true`
+
+                return (
+                  <li key={attachment.attachment_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border-light bg-bg-card px-4 py-3">
+                    <span className="text-[13px] font-medium text-text-primary truncate max-w-[280px] sm:max-w-[400px]" title={attachment.file_name}>
+                      {attachment.file_name}
+                    </span>
+                    <div className="flex gap-2">
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center rounded-lg bg-brand/10 px-3 py-1.5 text-[11px] font-bold text-brand transition-colors hover:bg-brand/20"
+                      >
+                        Preview
+                      </a>
+                      <a
+                        href={downloadUrl}
+                        download={attachment.file_name}
+                        className="inline-flex items-center justify-center rounded-lg border border-border-light px-3 py-1.5 text-[11px] font-bold text-text-secondary transition-colors hover:bg-bg-tertiary"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
         )}
 
@@ -537,7 +603,7 @@ function AdminQueryDetailView({ queryId, onBack }) {
         ) : (
           <div className="space-y-3">
             {answers.map(a => (
-              <AnswerCard key={a.answer_id} answer={a} comments={commentsByAnswer[a.answer_id] || []} />
+              <AnswerCard key={a.answer_id} answer={a} comments={commentsByAnswer[a.answer_id] || []} questionStatus={data?.question?.status} onUnaccept={() => handleUnaccept(a.answer_id)} />
             ))}
           </div>
         )}
