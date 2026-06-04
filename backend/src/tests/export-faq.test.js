@@ -56,8 +56,53 @@ test('exportQuestionToFAQ fails if original question is not found', async (t) =>
   assert.match(captured?.message, /Original question not found/)
 })
 
+test('exportQuestionToFAQ rejects unresolved questions', async (t) => {
+  t.mock.method(Question, 'findOne', async () => ({
+    question_id: 'q1',
+    title: 'Original Question Title',
+    status: 'open',
+    approval_status: 'approved',
+  }))
+  let captured
+  const res = makeRes()
+  await exportQuestionToFAQ(
+    makeReq({
+      body: { curatedTitle: 'This is a long curated title', curatedBody: 'Curated body' },
+    }),
+    res,
+    (e) => { captured = e },
+  )
+  assert.equal(captured?.statusCode, 400)
+  assert.match(captured?.message, /Only resolved questions can be exported/)
+})
+
+test('exportQuestionToFAQ rejects unapproved questions', async (t) => {
+  t.mock.method(Question, 'findOne', async () => ({
+    question_id: 'q1',
+    title: 'Original Question Title',
+    status: 'closed',
+    approval_status: 'pending',
+  }))
+  let captured
+  const res = makeRes()
+  await exportQuestionToFAQ(
+    makeReq({
+      body: { curatedTitle: 'This is a long curated title', curatedBody: 'Curated body' },
+    }),
+    res,
+    (e) => { captured = e },
+  )
+  assert.equal(captured?.statusCode, 400)
+  assert.match(captured?.message, /not been approved for FAQ export/)
+})
+
 test('exportQuestionToFAQ successfully exports and updates original question', async (t) => {
-  t.mock.method(Question, 'findOne', async () => ({ question_id: 'q1', title: 'Original Question Title' }))
+  t.mock.method(Question, 'findOne', async () => ({
+    question_id: 'q1',
+    title: 'Original Question Title',
+    status: 'closed',
+    approval_status: 'approved',
+  }))
   
   // mock exists to return false (slug doesn't exist yet)
   t.mock.method(FAQQuestion, 'exists', async () => false)
