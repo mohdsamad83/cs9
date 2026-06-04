@@ -16,6 +16,11 @@ function ProtectedRoute({ requiredRole, children }) {
 
   const roles = Array.isArray(user.roles) ? user.roles : [user.role].filter(Boolean)
 
+  // Admin trying to access user routes → send to admin dashboard
+  if (!requiredRole && roles.includes('ADMIN')) {
+    return <Navigate to="/admin/dashboard" replace />
+  }
+
   if (requiredRole && !roles.includes(requiredRole)) {
     return <Navigate to={roles.includes('ADMIN') ? '/admin/dashboard' : '/dashboard'} replace />
   }
