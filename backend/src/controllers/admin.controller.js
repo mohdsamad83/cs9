@@ -838,6 +838,14 @@ export async function exportQuestionToFAQ(req, res, next) {
       throw createHttpError(404, 'Original question not found')
     }
 
+    // Guard: only resolved questions with explicit approval can become FAQs
+    if (question.status !== 'closed') {
+      throw createHttpError(400, 'Only resolved questions can be exported to FAQ')
+    }
+    if (question.approval_status !== 'approved') {
+      throw createHttpError(400, 'This question has not been approved for FAQ export')
+    }
+
     // Generate unique slug
     let baseSlug = trimmedTitle
       .toLowerCase()
